@@ -4,7 +4,7 @@ SCREEN_SIZE = [480, 416]
 
 
 def load_image(name, colorkey=None):
-    fullname = os.path.join('images', name)
+    fullname = os.path.join('pictures/tanki', name)
     image = pygame.image.load(fullname).convert()
     if colorkey is not None:
         if colorkey == -1:
@@ -163,16 +163,11 @@ class Level:
         self.max_active_enemies = 4
 
         self.tile_empty = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_brick = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_brick.fill((255, 0, 0))
-        self.tile_steel = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_steel.fill((255, 255, 255))
-        self.tile_grass = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_grass.fill((0, 255, 0))
-        self.tile_water = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_water.fill((0, 0, 255))
-        self.tile_froze = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_froze.fill((125, 125, 125))
+        self.tile_brick = game.images[2]
+        self.tile_steel = game.images[3]
+        self.tile_grass = game.images[4]
+        self.tile_water = game.images[5]
+        self.tile_froze = game.images[6]
 
         self.obstacle_rects = []
 
@@ -395,23 +390,11 @@ class Enemy(Tank):
         elif self.type == self.TYPE_ARMOR:
             self.health = 400
 
-        images = [
-            sprites.subsurface(32 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(48 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(64 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(80 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(32 * 2, 16 * 2, 13 * 2, 15 * 2),
-            sprites.subsurface(48 * 2, 16 * 2, 13 * 2, 15 * 2),
-            sprites.subsurface(64 * 2, 16 * 2, 13 * 2, 15 * 2),
-            sprites.subsurface(80 * 2, 16 * 2, 13 * 2, 15 * 2)
-        ]
-
-        self.image = images[self.type]
+        self.image = game.images[0]
         self.image_up = self.image
         self.image_left = pygame.transform.rotate(self.image, 90)
         self.image_down = pygame.transform.rotate(self.image, 180)
         self.image_right = pygame.transform.rotate(self.image, 270)
-
 
         self.rotate(self.direction, False)
 
@@ -423,7 +406,6 @@ class Enemy(Tank):
 
         self.path = self.generatePath(self.direction)
         self.timer_uuid_fire = gtimer.add(1000, lambda: self.fire())
-
 
     def getFreeSpawningPosition(self):
 
@@ -510,7 +492,6 @@ class Enemy(Tank):
                 self.turnBack()
                 self.path = self.generatePath(self.direction)
                 return
-
 
         self.rect.topleft = new_rect.topleft
 
@@ -627,9 +608,6 @@ class Player(Tank):
 
         global sprites
 
-        if filename == None:
-            filename = (0, 0, 16 * 2, 16 * 2)
-
         self.start_position = position
         self.start_direction = direction
 
@@ -643,8 +621,7 @@ class Player(Tank):
             "enemy2": 0,
             "enemy3": 0
         }
-
-        self.image = sprites.subsurface(filename)
+        self.image = filename
         self.image_up = self.image
         self.image_left = pygame.transform.rotate(self.image, 90)
         self.image_down = pygame.transform.rotate(self.image, 180)
@@ -692,7 +669,6 @@ class Player(Tank):
             if player_rect.colliderect(enemy.rect) == True:
                 return
 
-
         self.rect.topleft = (new_position[0], new_position[1])
 
     def reset(self):
@@ -728,11 +704,19 @@ class Game:
         screen = pygame.display.set_mode(size)
 
         self.clock = pygame.time.Clock()
-        sprites = pygame.transform.scale(pygame.image.load("images/sprites.gif"), [192, 224])
+        self.images = [
+            pygame.transform.scale(load_image('tank.png', -1), (26, 26)),
+            pygame.transform.scale(load_image('tank2.png', -1), (26, 26)),
+            pygame.transform.scale(load_image('bricks.png', -1), (16, 16)),
+            pygame.transform.scale(load_image('steel.png', -1), (16, 16)),
+            pygame.transform.scale(load_image('grass.png', -1), (16, 16)),
+            pygame.transform.scale(load_image('water.png', -1), (16, 16)),
+            pygame.transform.scale(load_image('ice.png', -1), (16, 16))
 
-        pygame.display.set_icon(sprites.subsurface(0, 0, 13 * 2, 13 * 2))
+        ]
+        pygame.display.set_icon(self.images[0])
 
-        self.player_image = pygame.transform.rotate(sprites.subsurface(0, 0, 13 * 2, 13 * 2), 270)
+        self.player_image = pygame.transform.rotate(self.images[0], 270)
 
         self.timefreeze = False
 
@@ -747,7 +731,6 @@ class Game:
         del enemies[:]
         del bullets[:]
 
-
     def spawnEnemy(self):
 
         global enemies
@@ -757,7 +740,6 @@ class Game:
         if len(self.level.enemies_left) < 1 or self.timefreeze:
             return
         enemy = Enemy(self.level, 1)
-
         enemies.append(enemy)
 
     def respawnPlayer(self, player, clear_scores=False):
@@ -787,7 +769,7 @@ class Game:
         global players, screen
         self.running = False
         del gtimer.timers[:]
-        self.stage = 1
+        self.stage = 0
         main_loop = True
         self.drawIntroScreen()
         while main_loop:
@@ -817,9 +799,8 @@ class Game:
         if len(players) == 0:
             x = 8 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
             y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
-
             player = Player(
-                self.level, 0, [x, y], self.DIR_UP, (0, 0, 13 * 2, 13 * 2)
+                self.level, 0, [x, y], self.DIR_UP, self.images[0]
             )
             player.controls = [102, 119, 100, 115, 97]
             players.append(player)
@@ -828,7 +809,7 @@ class Game:
                 x = 16 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
                 y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
                 player = Player(
-                    self.level, 0, [x, y], self.DIR_UP, (16 * 2, 0, 13 * 2, 13 * 2)
+                    self.level, 0, [x, y], self.DIR_UP, self.images[1]
                 )
 
                 players.append(player)
@@ -962,7 +943,39 @@ class Game:
         for bullet in bullets:
             bullet.draw()
 
+        self.drawSidebar()
+
         pygame.display.flip()
+
+    def drawSidebar(self):
+
+        global screen, players, enemies
+
+        x = 416
+        y = 0
+        screen.fill([100, 100, 100], pygame.Rect([416, 0], [64, 416]))
+
+        text = str(len(self.level.enemies_left) + len(enemies))
+        screen.blit(pygame.font.Font(None, 50).render(text, 1, (255, 255, 255)), [x + 15, y + 40])
+        screen.blit(self.images[0], [x + 20, y + 5])
+
+        if pygame.font.get_init():
+            text_color = pygame.Color('black')
+            for n in range(len(players)):
+                if n == 0:
+                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, text_color),
+                                [x + 10, y + 150])
+                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, text_color),
+                                [x + 10, y + 180])
+                    screen.blit(self.images[0], [x + 17, y + 215])
+                else:
+                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, text_color),
+                                [x + 10, y + 250])
+                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, text_color),
+                                [x + 10, y + 280])
+                    screen.blit(self.images[0], [x + 17, y + 315])
+
+            screen.blit(pygame.font.Font(None, 50).render(str(self.stage), False, text_color), [x + 30, y + 380])
 
     def drawIntroScreen(self, put_on_surface=True):
 
@@ -1103,7 +1116,6 @@ class Game:
                         self.finishLevel()
                 else:
                     enemy.update(time_passed)
-
 
             if not self.game_over and self.active:
                 for player in players:
