@@ -1,4 +1,4 @@
-import os, pygame, time, random, uuid, sys
+import os, pygame, random, uuid
 
 SCREEN_SIZE = [480, 416]
 
@@ -75,8 +75,8 @@ class Bullet:
         self.owner = None
         self.owner_class = None
         self.power = 1
-        self.image = pygame.Surface([8, 8])
-        pygame.draw.circle(self.image, (255, 255, 255), (0, 0), 4)
+        self.image = pygame.Surface([6, 6])
+        pygame.draw.circle(self.image, (155, 155, 155), (3, 3), 3)
         if direction == self.DIR_UP:
             self.rect = pygame.Rect(position[0] + 11, position[1] - 8, 6, 8)
         elif direction == self.DIR_RIGHT:
@@ -153,7 +153,7 @@ class Bullet:
 
 
 class Level:
-    (TILE_EMPTY, TILE_BRICK, TILE_STEEL, TILE_WATER, TILE_GRASS, TILE_FROZE) = range(6)
+    (TILE_EMPTY, TILE_BRICK, TILE_STEEL, TILE_WATER, TILE_GRASS, TILE_SAND) = range(6)
     TILE_SIZE = 16
 
     def __init__(self, level_nr=None):
@@ -163,19 +163,18 @@ class Level:
         self.max_active_enemies = 4
 
         self.tile_empty = pygame.Surface((8 * 2, 8 * 2))
-        self.tile_brick = game.images[2]
-        self.tile_steel = game.images[3]
-        self.tile_grass = game.images[4]
-        self.tile_water = game.images[5]
-        self.tile_froze = game.images[6]
+        self.tile_brick = game.images['brick']
+        self.tile_steel = game.images['steel']
+        self.tile_grass = game.images['grass']
+        self.tile_water = game.images['water']
+        self.tile_sand = game.images['sand']
 
-        self.obstacle_rects = []
-
-        level_nr = 1 if level_nr == None else level_nr % 35
+        level_nr = 1 if level_nr == None else level_nr % 21
         if level_nr == 0:
-            level_nr = 35
+            level_nr = 21
         self.loadLevel(level_nr)
         self.obstacle_rects = []
+        self.SANDS = []
         self.updateObstacleRects()
 
     def hitTile(self, pos, power=1, sound=False):
@@ -216,7 +215,7 @@ class Level:
                 elif ch == "%":
                     self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_GRASS))
                 elif ch == "-":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_FROZE))
+                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_SAND))
                 x += self.TILE_SIZE
             x = 0
             y += self.TILE_SIZE
@@ -226,7 +225,7 @@ class Level:
         global screen
 
         if tiles == None:
-            tiles = [self.TILE_BRICK, self.TILE_STEEL, self.TILE_WATER, self.TILE_GRASS, self.TILE_FROZE]
+            tiles = [self.TILE_BRICK, self.TILE_STEEL, self.TILE_WATER, self.TILE_GRASS, self.TILE_SAND]
 
         for tile in self.mapr:
             if tile.type in tiles:
@@ -236,8 +235,8 @@ class Level:
                     screen.blit(self.tile_steel, tile.topleft)
                 elif tile.type == self.TILE_WATER:
                     screen.blit(self.tile_water, tile.topleft)
-                elif tile.type == self.TILE_FROZE:
-                    screen.blit(self.tile_froze, tile.topleft)
+                elif tile.type == self.TILE_SAND:
+                    screen.blit(self.tile_sand, tile.topleft)
                 elif tile.type == self.TILE_GRASS:
                     screen.blit(self.tile_grass, tile.topleft)
 
@@ -246,6 +245,8 @@ class Level:
         for tile in self.mapr:
             if tile.type in (self.TILE_BRICK, self.TILE_STEEL, self.TILE_WATER):
                 self.obstacle_rects.append(tile)
+            if tile.type == self.TILE_SAND:
+                self.SANDS.append(tile)
 
 
 class Tank:
@@ -260,7 +261,7 @@ class Tank:
         self.paralised = False
         self.paused = False
         self.shielded = False
-        self.speed = 2
+        self.speed = 3
         self.max_active_bullets = 1
         self.side = side
         self.flash = 0
@@ -380,17 +381,16 @@ class Enemy(Tank):
             self.state = self.STATE_DEAD
             return
 
-        print(self.type)
         if self.type == self.TYPE_BASIC:
-            self.speed = 1
+            self.speed = 2
         elif self.type == self.TYPE_FAST:
-            self.speed = 3
+            self.speed = 4
         elif self.type == self.TYPE_POWER:
             self.superpowers = 1
         elif self.type == self.TYPE_ARMOR:
             self.health = 400
 
-        self.image = game.images[0]
+        self.image = game.images['enemy']
         self.image_up = self.image
         self.image_left = pygame.transform.rotate(self.image, 90)
         self.image_down = pygame.transform.rotate(self.image, 180)
@@ -463,11 +463,11 @@ class Enemy(Tank):
                 self.path = self.generatePath(self.direction, True)
                 return
         elif self.direction == self.DIR_RIGHT:
-            if new_position[0] > (416 - 26):
+            if new_position[0] > 390:
                 self.path = self.generatePath(self.direction, True)
                 return
         elif self.direction == self.DIR_DOWN:
-            if new_position[1] > (416 - 26):
+            if new_position[1] > 390:
                 self.path = self.generatePath(self.direction, True)
                 return
         elif self.direction == self.DIR_LEFT:
@@ -524,11 +524,6 @@ class Enemy(Tank):
                 opposite_direction = direction + 2
             else:
                 opposite_direction = direction - 2
-
-            if direction in [self.DIR_UP, self.DIR_RIGHT]:
-                opposite_direction = direction + 2
-            else:
-                opposite_direction = direction - 2
             directions = all_directions
             random.shuffle(directions)
             directions.remove(opposite_direction)
@@ -576,13 +571,17 @@ class Enemy(Tank):
         x = self.rect.left
         y = self.rect.top
 
-        if new_direction in (self.DIR_RIGHT, self.DIR_LEFT):
-            axis_fix = self.nearest(y, 16) - y
-        else:
-            axis_fix = self.nearest(x, 16) - x
         axis_fix = 0
 
         pixels = self.nearest(random.randint(1, 12) * 32, 32) + axis_fix + 3
+
+        if self.rect.collidelist(game.level.SANDS) != -1:
+            self.speed = 1
+        else:
+            if self.type == self.TYPE_FAST:
+                self.speed = 4
+            else:
+                self.speed = 2
 
         if new_direction == self.DIR_UP:
             for px in range(0, pixels, self.speed):
@@ -640,17 +639,23 @@ class Player(Tank):
         if self.direction != direction:
             self.rotate(direction)
 
+        if self.rect.collidelist(game.level.SANDS) != -1:
+            self.speed = 1
+        else:
+            self.speed = 3
+
         if direction == self.DIR_UP:
+
             new_position = [self.rect.left, self.rect.top - self.speed]
             if new_position[1] < 0:
                 return
         elif direction == self.DIR_RIGHT:
             new_position = [self.rect.left + self.speed, self.rect.top]
-            if new_position[0] > (416 - 26):
+            if new_position[0] > 390:
                 return
         elif direction == self.DIR_DOWN:
             new_position = [self.rect.left, self.rect.top + self.speed]
-            if new_position[1] > (416 - 26):
+            if new_position[1] > 390:
                 return
         elif direction == self.DIR_LEFT:
             new_position = [self.rect.left - self.speed, self.rect.top]
@@ -699,31 +704,32 @@ class Game:
 
         pygame.display.set_caption("Танкисты")
 
-        size = width, height = 480, 416
+        size = 480, 416
 
         screen = pygame.display.set_mode(size)
 
         self.clock = pygame.time.Clock()
-        self.images = [
-            pygame.transform.scale(load_image('tank.png', -1), (26, 26)),
-            pygame.transform.scale(load_image('tank2.png', -1), (26, 26)),
-            pygame.transform.scale(load_image('bricks.png', -1), (16, 16)),
-            pygame.transform.scale(load_image('steel.png', -1), (16, 16)),
-            pygame.transform.scale(load_image('grass.png', -1), (16, 16)),
-            pygame.transform.scale(load_image('water.png', -1), (16, 16)),
-            pygame.transform.scale(load_image('ice.png', -1), (16, 16))
+        self.images = {
+            'player': pygame.transform.scale(load_image('tank.png', -1), (26, 26)),
+            'player2': pygame.transform.scale(load_image('tank2.png', -1), (26, 26)),
+            'enemy': pygame.transform.scale(load_image('enemy.png', -1), (26, 26)),
+            'brick': pygame.transform.scale(load_image('bricks.png', -1), (16, 16)),
+            'steel': pygame.transform.scale(load_image('steel.png', -1), (16, 16)),
+            'grass': pygame.transform.scale(load_image('grass.png', -1), (16, 16)),
+            'water': pygame.transform.scale(load_image('water.png', -1), (16, 16)),
+            'sand': pygame.transform.scale(load_image('sand.png', -1), (16, 16)),
 
-        ]
-        pygame.display.set_icon(self.images[0])
+        }
+        pygame.display.set_icon(self.images['player'])
 
-        self.player_image = pygame.transform.rotate(self.images[0], 270)
+        self.player_image = pygame.transform.rotate(self.images['player'], 270)
 
         self.timefreeze = False
 
         self.im_game_over = pygame.Surface((64, 40))
         self.im_game_over.set_colorkey((0, 0, 0))
         self.im_game_over.blit(pygame.font.Font(None, 50).render("Потрачено", False, (127, 64, 64)), [0, 0])
-        self.game_over_y = 416 + 40
+        self.game_over_y = 456
 
         self.nr_of_players = 1
 
@@ -749,6 +755,14 @@ class Game:
                 "bonus": 0, "enemy0": 0, "enemy1": 0, "enemy2": 0, "enemy3": 0
             }
 
+    def gameOver(self):
+        pygame.mixer.music.load('music/lose.mp3')
+        pygame.mixer.music.play()
+        self.game_over_y = 456
+
+        self.game_over = True
+        gtimer.add(3000, lambda: self.showScores(), 1)
+
     def gameOverScreen(self):
         global screen
         self.running = False
@@ -756,7 +770,7 @@ class Game:
         screen.blit(pygame.font.Font(None, 50).render("Потрачено", 1, (100, 255, 100)), (165, 210))
         pygame.display.flip()
         while 1:
-            time_passed = self.clock.tick(50)
+            self.clock.tick(50)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     quit()
@@ -773,7 +787,7 @@ class Game:
         main_loop = True
         self.drawIntroScreen()
         while main_loop:
-            time_passed = self.clock.tick(50)
+            self.clock.tick(50)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     quit()
@@ -800,7 +814,7 @@ class Game:
             x = 8 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
             y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
             player = Player(
-                self.level, 0, [x, y], self.DIR_UP, self.images[0]
+                self.level, 0, [x, y], self.DIR_UP, self.images['player']
             )
             player.controls = [102, 119, 100, 115, 97]
             players.append(player)
@@ -809,7 +823,7 @@ class Game:
                 x = 16 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
                 y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
                 player = Player(
-                    self.level, 0, [x, y], self.DIR_UP, self.images[1]
+                    self.level, 0, [x, y], self.DIR_UP, self.images['player2']
                 )
 
                 players.append(player)
@@ -820,57 +834,30 @@ class Game:
 
     def showScores(self):
 
-        global screen, sprites, players, play_sounds, sounds
+        global screen, players
         self.running = False
+        screen.fill([0, 0, 0])
 
         hiscore = self.loadHiscore()
+        self.saveHiscore(players[0].score)
+        if self.nr_of_players == 2:
+            self.saveHiscore(players[1].score)
 
-        if players[0].score > hiscore:
-            hiscore = players[0].score
-            self.saveHiscore(hiscore)
-        if self.nr_of_players == 2 and players[1].score > hiscore:
-            hiscore = players[1].score
-            self.saveHiscore(hiscore)
+        screen.blit(pygame.font.Font(None, 50).render("Топ-скор", False, (127, 64, 64)), [105, 35])
+        screen.blit(pygame.font.Font(None, 50).render(str(max(hiscore)), False, (191, 160, 128)), [295, 35])
 
-        img_tanks = [
-            sprites.subsurface(32 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(48 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(64 * 2, 0, 13 * 2, 15 * 2),
-            sprites.subsurface(80 * 2, 0, 13 * 2, 15 * 2)
-        ]
+        screen.blit(pygame.font.Font(None, 50).render("Уровень" + str(self.stage).rjust(3), False, (255, 255, 255)),
+                    [170, 65])
 
-        img_arrows = [
-            sprites.subsurface(81 * 2, 48 * 2, 7 * 2, 7 * 2),
-            sprites.subsurface(88 * 2, 48 * 2, 7 * 2, 7 * 2)
-        ]
-
-        screen.fill([0, 0, 0])
-        black = pygame.Color("black")
-        white = pygame.Color("white")
-        purple = pygame.Color(127, 64, 64)
-        pink = pygame.Color(191, 160, 128)
-
-        screen.blit(pygame.font.Font(None, 50).render("HI-SCORE", False, purple), [105, 35])
-        screen.blit(pygame.font.Font(None, 50).render(str(hiscore), False, pink), [295, 35])
-
-        screen.blit(pygame.font.Font(None, 50).render("STAGE" + str(self.stage).rjust(3), False, white), [170, 65])
-
-        screen.blit(pygame.font.Font(None, 50).render("I-PLAYER", False, purple), [25, 95])
-        screen.blit(pygame.font.Font(None, 50).render(str(players[0].score).rjust(8), False, pink), [25, 125])
+        screen.blit(pygame.font.Font(None, 50).render("Игрок 1", False, (127, 64, 64)), [25, 95])
+        screen.blit(pygame.font.Font(None, 50).render(str(players[0].score).rjust(8), False, (191, 160, 128)),
+                    [25, 125])
 
         if self.nr_of_players == 2:
-            screen.blit(pygame.font.Font(None, 50).render("II-PLAYER", False, purple), [310, 95])
-            screen.blit(pygame.font.Font(None, 50).render(str(players[1].score).rjust(8), False, pink), [325, 125])
+            screen.blit(pygame.font.Font(None, 50).render("Игрок 2", False, (127, 64, 64)), [310, 95])
+            screen.blit(pygame.font.Font(None, 50).render(str(players[1].score).rjust(8), False, (191, 160, 128)),
+                        [325, 125])
 
-        for i in range(4):
-            screen.blit(img_tanks[i], [226, 160 + (i * 45)])
-            screen.blit(img_arrows[0], [206, 168 + (i * 45)])
-            if self.nr_of_players == 2:
-                screen.blit(img_arrows[1], [258, 168 + (i * 45)])
-
-        screen.blit(pygame.font.Font(None, 50).render("TOTAL", False, white), [70, 335])
-
-        pygame.draw.line(screen, white, [170, 330], [307, 330], 4)
         pygame.display.flip()
         self.clock.tick(2)
         interval = 5
@@ -878,16 +865,17 @@ class Game:
             tanks = players[0].trophies["enemy" + str(i)]
 
             for n in range(tanks + 1):
-                if n > 0 and play_sounds:
-                    sounds["score"].play()
-
-                screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, black), [170, 168 + (i * 45)])
-                screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, white), [170, 168 + (i * 45)])
+                screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, (0, 0, 0)),
+                            [170, 168 + (i * 45)])
+                screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, (255, 255, 255)),
+                            [170, 168 + (i * 45)])
                 screen.blit(
-                    pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " PTS", False, black),
+                    pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очки", False, (0, 0, 0)),
                     [25, 168 + (i * 45)])
-                screen.blit(pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " PTS", False, white),
-                            [25, 168 + (i * 45)])
+                screen.blit(
+                    pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " Очки", False,
+                                                      (255, 255, 255)),
+                    [25, 168 + (i * 45)])
                 pygame.display.flip()
                 self.clock.tick(interval)
 
@@ -895,43 +883,60 @@ class Game:
                 tanks = players[1].trophies["enemy" + str(i)]
 
                 for n in range(tanks + 1):
-                    screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, black),
+                    screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, (0, 0, 0)),
                                 [277, 168 + (i * 45)])
-                    screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, white), [277, 168 + (i * 45)])
+                    screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, (255, 255, 255)),
+                                [277, 168 + (i * 45)])
 
                     screen.blit(
-                        pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " PTS", False, black),
+                        pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очки", False,
+                                                          (0, 0, 0)),
                         [325, 168 + (i * 45)])
                     screen.blit(
-                        pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " PTS", False, white),
+                        pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " Очки", False,
+                                                          (255, 255, 255)),
                         [325, 168 + (i * 45)])
 
                     pygame.display.flip()
                     self.clock.tick(interval)
 
             self.clock.tick(interval)
-        tanks = sum([i for i in players[0].trophies.values()]) - players[0].trophies["bonus"]
-        screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, white), [170, 335])
+        tanks = sum([i for i in players[0].trophies.values()])
+        screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, (255, 255, 255)), [170, 335])
         if self.nr_of_players == 2:
-            tanks = sum([i for i in players[1].trophies.values()]) - players[1].trophies["bonus"]
-            screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, white), [277, 335])
+            tanks = sum([i for i in players[1].trophies.values()])
+            screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, (255, 255, 255)), [277, 335])
 
         pygame.display.flip()
 
-        self.clock.tick(1)
-        self.clock.tick(1)
-
-        if self.game_over:
-            self.gameOverScreen()
-        else:
-            self.nextLevel()
+        while 1:
+            if self.paused:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        quit()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            self.running = True
+                            return False
+            else:
+                self.clock.tick(50)
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        quit()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            if self.game_over:
+                                self.gameOverScreen()
+                            else:
+                                self.nextLevel()
+                            return
 
     def draw(self):
         global screen, players, enemies, bullets
 
         screen.fill([0, 0, 0])
 
-        self.level.draw([self.level.TILE_EMPTY, self.level.TILE_BRICK, self.level.TILE_STEEL, self.level.TILE_FROZE,
+        self.level.draw([self.level.TILE_EMPTY, self.level.TILE_BRICK, self.level.TILE_STEEL, self.level.TILE_SAND,
                          self.level.TILE_WATER])
 
         for enemy in enemies:
@@ -943,6 +948,8 @@ class Game:
         for bullet in bullets:
             bullet.draw()
 
+        self.level.draw([self.level.TILE_GRASS])
+
         self.drawSidebar()
 
         pygame.display.flip()
@@ -953,29 +960,28 @@ class Game:
 
         x = 416
         y = 0
-        screen.fill([100, 100, 100], pygame.Rect([416, 0], [64, 416]))
+        screen.fill([150, 150, 150], pygame.Rect([416, 0], [64, 416]))
 
         text = str(len(self.level.enemies_left) + len(enemies))
-        screen.blit(pygame.font.Font(None, 50).render(text, 1, (255, 255, 255)), [x + 15, y + 40])
-        screen.blit(self.images[0], [x + 20, y + 5])
+        screen.blit(pygame.font.Font(None, 50).render(text, 1, (0, 0, 0)), [x + 15, y + 40])
+        screen.blit(self.images['enemy'], [x + 20, y + 5])
 
         if pygame.font.get_init():
-            text_color = pygame.Color('black')
             for n in range(len(players)):
                 if n == 0:
-                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, text_color),
+                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, (0, 0, 0)),
                                 [x + 10, y + 150])
-                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, text_color),
+                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, (0, 0, 0)),
                                 [x + 10, y + 180])
-                    screen.blit(self.images[0], [x + 17, y + 215])
+                    screen.blit(self.images['player'], [x + 17, y + 215])
                 else:
-                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, text_color),
+                    screen.blit(pygame.font.Font(None, 50).render('P' + str(n + 1), False, (0, 0, 0)),
                                 [x + 10, y + 250])
-                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, text_color),
+                    screen.blit(pygame.font.Font(None, 50).render('X' + str(players[n].lives), False, (0, 0, 0)),
                                 [x + 10, y + 280])
-                    screen.blit(self.images[0], [x + 17, y + 315])
+                    screen.blit(self.images['player2'], [x + 17, y + 315])
 
-            screen.blit(pygame.font.Font(None, 50).render(str(self.stage), False, text_color), [x + 30, y + 380])
+            screen.blit(pygame.font.Font(None, 50).render(str(self.stage), False, (0, 0, 0)), [x + 30, y + 380])
 
     def drawIntroScreen(self, put_on_surface=True):
 
@@ -1015,9 +1021,16 @@ class Game:
         f.close()
         return True
 
+    def finishLevel(self):
+
+        self.active = False
+        gtimer.add(3000, lambda: self.showScores(), 1)
+
     def nextLevel(self):
 
         global players, bullets
+        pygame.mixer.music.load('music/default.mp3')
+        pygame.mixer.music.play()
 
         del bullets[:]
         del enemies[:]
@@ -1037,10 +1050,10 @@ class Game:
             (3, 8, 3, 6), (6, 4, 2, 8), (4, 4, 4, 8), (0, 10, 4, 6), (0, 6, 4, 10)
         )
 
-        if self.stage <= 10:
+        if self.stage <= 21:
             enemies_l = levels_enemies[self.stage - 1]
         else:
-            enemies_l = levels_enemies[9]
+            enemies_l = levels_enemies[20]
 
         self.level.enemies_left = [0] * enemies_l[0] + [1] * enemies_l[1] + [2] * enemies_l[2] + [3] * enemies_l[3]
 
@@ -1050,6 +1063,7 @@ class Game:
         self.game_over = False
         self.running = True
         self.active = True
+        self.paused = False
 
         self.draw()
 
@@ -1063,6 +1077,12 @@ class Game:
                 elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
                     if event.key == pygame.K_q:
                         quit()
+                    if event.key == pygame.K_ESCAPE:
+                        self.paused = True
+
+                        self.paused = self.showScores()
+                    if event.key == pygame.K_u:
+                        self.finishLevel()
                     for player in players:
                         if player.state == player.STATE_ALIVE:
                             try:
