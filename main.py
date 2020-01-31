@@ -15,8 +15,7 @@ def load_image(name, colorkey=None):
     return image
 
 
-class myRect(pygame.Rect):
-
+class Construct(pygame.Rect):
     def __init__(self, left, top, width, height, type):
         pygame.Rect.__init__(self, left, top, width, height)
         self.type = type
@@ -36,7 +35,6 @@ class Timer(object):
             "uuid": uuid.uuid4()
         }
         self.timers.append(options)
-
         return options["uuid"]
 
     def destroy(self, uuid_nr):
@@ -68,7 +66,6 @@ class Bullet:
     (OWNER_PLAYER, OWNER_ENEMY) = range(2)
 
     def __init__(self, level, position, direction, damage=100, speed=5):
-        global sprites
         self.level = level
         self.direction = direction
         self.damage = damage
@@ -104,12 +101,12 @@ class Bullet:
                 return
         elif self.direction == self.DIR_RIGHT:
             self.rect.topleft = [self.rect.left + self.speed, self.rect.top]
-            if self.rect.left > (416 - self.rect.width):
+            if self.rect.left > (SCREEN_SIZE[1] - self.rect.width):
                 self.destroy()
                 return
         elif self.direction == self.DIR_DOWN:
             self.rect.topleft = [self.rect.left, self.rect.top + self.speed]
-            if self.rect.top > (416 - self.rect.height):
+            if self.rect.top > (SCREEN_SIZE[1] - self.rect.height):
                 self.destroy()
                 return
         elif self.direction == self.DIR_LEFT:
@@ -157,12 +154,8 @@ class Level:
     TILE_SIZE = 16
 
     def __init__(self, level_nr=None):
-
-        global sprites
-
-        self.max_active_enemies = 4
-
-        self.tile_empty = pygame.Surface((8 * 2, 8 * 2))
+        self.max_active_enemies = 5
+        self.tile_empty = pygame.Surface((self.TILE_SIZE, self.TILE_SIZE))
         self.tile_brick = game.images['brick']
         self.tile_steel = game.images['steel']
         self.tile_grass = game.images['grass']
@@ -207,15 +200,15 @@ class Level:
         for row in data:
             for ch in row:
                 if ch == "#":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_BRICK))
+                    self.mapr.append(Construct(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_BRICK))
                 elif ch == "@":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_STEEL))
+                    self.mapr.append(Construct(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_STEEL))
                 elif ch == "~":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_WATER))
+                    self.mapr.append(Construct(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_WATER))
                 elif ch == "%":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_GRASS))
+                    self.mapr.append(Construct(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_GRASS))
                 elif ch == "-":
-                    self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_SAND))
+                    self.mapr.append(Construct(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_SAND))
                 x += self.TILE_SIZE
             x = 0
             y += self.TILE_SIZE
@@ -255,8 +248,6 @@ class Tank:
     (SIDE_PLAYER, SIDE_ENEMY) = range(2)
 
     def __init__(self, level, side, position=None, direction=None, filename=None):
-
-        global sprites
         self.health = 100
         self.paralised = False
         self.paused = False
@@ -266,7 +257,6 @@ class Tank:
         self.side = side
         self.flash = 0
         self.superpowers = 0
-        self.bonus = None
         self.controls = [pygame.K_SPACE, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
         self.pressed = [False] * 4
         self.level = level
@@ -371,7 +361,7 @@ class Enemy(Tank):
 
         Tank.__init__(self, level, type, position=None, direction=None, filename=None)
 
-        global enemies, sprites
+        global enemies
 
         self.bullet_queued = False
 
@@ -604,9 +594,6 @@ class Player(Tank):
     def __init__(self, level, type, position=None, direction=None, filename=None):
 
         Tank.__init__(self, level, type, position=None, direction=None, filename=None)
-
-        global sprites
-
         self.start_position = position
         self.start_direction = direction
 
@@ -614,7 +601,6 @@ class Player(Tank):
         self.score = 0
 
         self.trophies = {
-            "bonus": 0,
             "enemy0": 0,
             "enemy1": 0,
             "enemy2": 0,
@@ -695,16 +681,12 @@ class Game:
 
     def __init__(self):
 
-        global screen, sprites, play_sounds, sounds
-
-        if play_sounds:
-            pygame.mixer.pre_init(44100, -16, 1, 512)
+        global screen
 
         pygame.init()
-
         pygame.display.set_caption("Танкисты")
 
-        size = 480, 416
+        size = SCREEN_SIZE
 
         screen = pygame.display.set_mode(size)
 
@@ -729,7 +711,7 @@ class Game:
         self.im_game_over = pygame.Surface((64, 40))
         self.im_game_over.set_colorkey((0, 0, 0))
         self.im_game_over.blit(pygame.font.Font(None, 50).render("Потрачено", False, (127, 64, 64)), [0, 0])
-        self.game_over_y = 456
+        self.game_over_y = SCREEN_SIZE[1] + 40
 
         self.nr_of_players = 1
 
@@ -752,13 +734,13 @@ class Game:
         player.reset()
         if clear_scores:
             player.trophies = {
-                "bonus": 0, "enemy0": 0, "enemy1": 0, "enemy2": 0, "enemy3": 0
+                "enemy0": 0, "enemy1": 0, "enemy2": 0, "enemy3": 0
             }
 
     def gameOver(self):
         pygame.mixer.music.load('music/lose.mp3')
         pygame.mixer.music.play()
-        self.game_over_y = 456
+        self.game_over_y = SCREEN_SIZE[1] + 40
 
         self.game_over = True
         gtimer.add(3000, lambda: self.showScores(), 1)
@@ -843,19 +825,19 @@ class Game:
         if self.nr_of_players == 2:
             self.saveHiscore(players[1].score)
 
-        screen.blit(pygame.font.Font(None, 50).render("Топ-скор", False, (127, 64, 64)), [105, 35])
-        screen.blit(pygame.font.Font(None, 50).render(str(max(hiscore)), False, (191, 160, 128)), [295, 35])
+        screen.blit(pygame.font.Font(None, 40).render("Топ-скор", False, (127, 64, 64)), [105, 35])
+        screen.blit(pygame.font.Font(None, 40).render(str(max(hiscore)), False, (191, 160, 128)), [295, 35])
 
-        screen.blit(pygame.font.Font(None, 50).render("Уровень" + str(self.stage).rjust(3), False, (255, 255, 255)),
+        screen.blit(pygame.font.Font(None, 40).render("Уровень" + str(self.stage).rjust(3), False, (255, 255, 255)),
                     [170, 65])
 
-        screen.blit(pygame.font.Font(None, 50).render("Игрок 1", False, (127, 64, 64)), [25, 95])
-        screen.blit(pygame.font.Font(None, 50).render(str(players[0].score).rjust(8), False, (191, 160, 128)),
+        screen.blit(pygame.font.Font(None, 40).render("Игрок 1", False, (127, 64, 64)), [25, 95])
+        screen.blit(pygame.font.Font(None, 40).render(str(players[0].score).rjust(8), False, (191, 160, 128)),
                     [25, 125])
 
         if self.nr_of_players == 2:
-            screen.blit(pygame.font.Font(None, 50).render("Игрок 2", False, (127, 64, 64)), [310, 95])
-            screen.blit(pygame.font.Font(None, 50).render(str(players[1].score).rjust(8), False, (191, 160, 128)),
+            screen.blit(pygame.font.Font(None, 40).render("Игрок 2", False, (127, 64, 64)), [310, 95])
+            screen.blit(pygame.font.Font(None, 40).render(str(players[1].score).rjust(8), False, (191, 160, 128)),
                         [325, 125])
 
         pygame.display.flip()
@@ -865,15 +847,16 @@ class Game:
             tanks = players[0].trophies["enemy" + str(i)]
 
             for n in range(tanks + 1):
-                screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, (0, 0, 0)),
+                screen.blit(pygame.font.Font(None, 40).render(str(n - 1).rjust(2), False, (0, 0, 0)),
                             [170, 168 + (i * 45)])
-                screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, (255, 255, 255)),
+                screen.blit(pygame.font.Font(None, 40).render(str(n).rjust(2), False, (255, 255, 255)),
                             [170, 168 + (i * 45)])
                 screen.blit(
-                    pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очки", False, (0, 0, 0)),
+                    pygame.font.Font(None, 40).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очков", False,
+                                                      (0, 0, 0)),
                     [25, 168 + (i * 45)])
                 screen.blit(
-                    pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " Очки", False,
+                    pygame.font.Font(None, 40).render(str(n * (i + 1) * 100).rjust(4) + " Очков", False,
                                                       (255, 255, 255)),
                     [25, 168 + (i * 45)])
                 pygame.display.flip()
@@ -883,17 +866,17 @@ class Game:
                 tanks = players[1].trophies["enemy" + str(i)]
 
                 for n in range(tanks + 1):
-                    screen.blit(pygame.font.Font(None, 50).render(str(n - 1).rjust(2), False, (0, 0, 0)),
+                    screen.blit(pygame.font.Font(None, 40).render(str(n - 1).rjust(2), False, (0, 0, 0)),
                                 [277, 168 + (i * 45)])
-                    screen.blit(pygame.font.Font(None, 50).render(str(n).rjust(2), False, (255, 255, 255)),
+                    screen.blit(pygame.font.Font(None, 40).render(str(n).rjust(2), False, (255, 255, 255)),
                                 [277, 168 + (i * 45)])
 
                     screen.blit(
-                        pygame.font.Font(None, 50).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очки", False,
+                        pygame.font.Font(None, 40).render(str((n - 1) * (i + 1) * 100).rjust(4) + " Очков", False,
                                                           (0, 0, 0)),
                         [325, 168 + (i * 45)])
                     screen.blit(
-                        pygame.font.Font(None, 50).render(str(n * (i + 1) * 100).rjust(4) + " Очки", False,
+                        pygame.font.Font(None, 40).render(str(n * (i + 1) * 100).rjust(4) + " Очков", False,
                                                           (255, 255, 255)),
                         [325, 168 + (i * 45)])
 
@@ -902,10 +885,10 @@ class Game:
 
             self.clock.tick(interval)
         tanks = sum([i for i in players[0].trophies.values()])
-        screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, (255, 255, 255)), [170, 335])
+        screen.blit(pygame.font.Font(None, 40).render(str(tanks).rjust(2), False, (255, 255, 255)), [170, 335])
         if self.nr_of_players == 2:
             tanks = sum([i for i in players[1].trophies.values()])
-            screen.blit(pygame.font.Font(None, 50).render(str(tanks).rjust(2), False, (255, 255, 255)), [277, 335])
+            screen.blit(pygame.font.Font(None, 40).render(str(tanks).rjust(2), False, (255, 255, 255)), [277, 335])
 
         pygame.display.flip()
 
@@ -958,9 +941,9 @@ class Game:
 
         global screen, players, enemies
 
-        x = 416
+        x = SCREEN_SIZE[1]
         y = 0
-        screen.fill([150, 150, 150], pygame.Rect([416, 0], [64, 416]))
+        screen.fill([150, 150, 150], pygame.Rect([SCREEN_SIZE[1], 0], [64, SCREEN_SIZE[1]]))
 
         text = str(len(self.level.enemies_left) + len(enemies))
         screen.blit(pygame.font.Font(None, 50).render(text, 1, (0, 0, 0)), [x + 15, y + 40])
@@ -1139,10 +1122,7 @@ class Game:
 
             if not self.game_over and self.active:
                 for player in players:
-                    if player.state == player.STATE_ALIVE:
-                        if player.bonus != None and player.side == player.SIDE_PLAYER:
-                            player.bonus = None
-                    elif player.state == player.STATE_DEAD:
+                    if player.state == player.STATE_DEAD:
                         self.superpowers = 0
                         player.lives -= 1
                         if player.lives > 0:
@@ -1163,12 +1143,10 @@ class Game:
 if __name__ == "__main__":
     gtimer = Timer()
 
-    sprites = None
     screen = None
     players = []
     enemies = []
     bullets = []
-    bonuses = []
     labels = []
 
     play_sounds = True
