@@ -1,12 +1,11 @@
-def f(n):
-    return str(bin(n)).count('1')
+from PyQt5.QtWidgets import (QWidget, QInputDialog, QApplication)
+import sys
 
-def g(n):
-    return f(n) > 7
+def getUserName(text):
+    app = QApplication(sys.argv)
+    if text:
+        return QInputDialog.getText(QWidget(), 'Игрок ' + text, 'Введите ваше имя')
+    else:
+        return QInputDialog.getText(QWidget(), 'Продолжить?' + text, 'Что бы продолжить нажмите ОК')
 
-
-rez = 0
-for i in range(1024):
-    if g(i):
-        rez += 1
-print(rez)
+print(getUserName())
